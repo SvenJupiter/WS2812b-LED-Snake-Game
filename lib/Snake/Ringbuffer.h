@@ -1,3 +1,5 @@
+#ifndef RINGBUFFER_H
+#define RINGBUFFER_H
 #include <vector>
 
 template <typename T>
@@ -877,3 +879,5 @@ class Ringbuffer : protected std::vector<T> {
         }
 
 };
+
+#endif

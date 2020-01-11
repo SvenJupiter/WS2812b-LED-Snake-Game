@@ -7,6 +7,7 @@
 #include <LEDMatrix.h>      // https://github.com/Jorgen-VikingGod/LEDMatrix
 
 #include "freertos/task.h"
+#include "Snake.h"
 
 // Change the next defines to match your matrix type and size
 #define DATA_PIN            4
@@ -32,9 +33,6 @@ uint8_t hue;
 int16_t counter;
 
 
-// BT-MAC-Address of KAI_HP_PC
-#define HP_PC_BT_MAC "5C:F3:70:90:12:EB"
-
 // BT-MAC-Address of Xperia XZ Smartphone
 #define SMARTPHONE_BT_MAC "84:C7:EA:B1:11:AB"
 
@@ -51,25 +49,24 @@ Ringbuffer<int> buf = {1, 2, 3, 4, 5, 6, 7, 8};
 TaskHandle_t ps4_task_handle = nullptr;
 TaskHandle_t led_task_handle = nullptr;
 
+TaskHandle_t snake_task_handle = nullptr;
+
 void setup() {
     // put your setup code here, to run once:
 
     Serial.begin(115200); delay(1000);
     Serial.println("Ready.");
 
-    // ps4_controller_setup();
-    // leds_setup();
+    // xTaskCreatePinnedToCore(ps4_task, "PS4-Task", 8192, nullptr, 4, &ps4_task_handle, 0);
+    // xTaskCreatePinnedToCore(led_task, "LED-Task", 8192, nullptr, 4, &led_task_handle, 1);
 
-    xTaskCreatePinnedToCore(ps4_task, "PS4-Task", 8192, nullptr, 4, &ps4_task_handle, 0);
-    xTaskCreatePinnedToCore(led_task, "LED-Task", 8192, nullptr, 4, &led_task_handle, 1);
+    xTaskCreatePinnedToCore(snake_game_task, "Snake-Task", 8192, nullptr, 4, &snake_task_handle, 1);
 
 }
 
 void loop() {
     // put your main code here, to run repeatedly:
 
-    // ps4_controller_test();
-    // leds_test();
     while (true) { vTaskDelay(portMAX_DELAY); }
 
 }
