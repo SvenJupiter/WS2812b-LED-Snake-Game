@@ -19,6 +19,7 @@
         "numeric": "cpp",
         "sstream": "cpp",
         "streambuf": "cpp",
-        "system_error": "cpp"
+        "system_error": "cpp",
+        "iomanip": "cpp"
     }
 }

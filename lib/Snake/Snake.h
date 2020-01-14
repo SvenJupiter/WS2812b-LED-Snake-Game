@@ -1,7 +1,9 @@
 #include "stdint.h"
 #include "FastLED.h"
 #include "Ringbuffer.h"
+#include "LedMatrix.h"
 #include <utility>
+#include <set>
 
 
 class Direction {
@@ -52,6 +54,7 @@ class Direction {
     static const Direction UpLeft;
     static const Direction DownLeft;
     static const Direction DownRight;
+    static const Direction None;
 
 };
 
@@ -158,8 +161,9 @@ class Fruit {
     public:
         Position position;
         Type type;
+        CRGB color;
 
-    Fruit(const Position& pos, const Type& fruit_type = Normal_Type): position(pos), type(fruit_type) {}
+    Fruit(const Position& pos, const Type& fruit_type = Normal_Type, const CRGB& Color = CRGB::Yellow): position(pos), type(fruit_type), color(Color) {}
 
     Fruit(const Fruit& other): position(other.position), type(other.type) {}
 
@@ -169,7 +173,11 @@ class Fruit {
             this->type = other.type;
         }
     }
+
+    // Needed to put Fruits in a set (order doesn't matter in this case)
+    bool operator<(const Fruit& other) const { return false; }
 };
+typedef std::set<Fruit> FruitList;
 
 
 class Snake {
@@ -179,14 +187,14 @@ class Snake {
         // int32_t length;
 
         Ringbuffer<Position> body;
-        CHSV head_color;
-        CHSV body_base_color;
+        CRGB head_color;
+        CRGB body_base_color;
         uint8_t length_color_modifier;
         uint8_t time_color_modifier;
 
     public:
 
-        Snake(const Position initial_pos, const uint32_t initial_length = 5): body(initial_length, initial_pos) {}
+        Snake(const Position initial_pos, const uint32_t initial_length = 5): body(initial_length, initial_pos), head_color(CRGB::Red), body_base_color(CRGB::Green) {}
 
 
         Position& head() { return this->body.front(); }
@@ -245,23 +253,28 @@ class GameBoard {
         bool invert_x_movement;
         bool invert_y_movement;
 
-        CHSV board_color;
+        CRGB board_color;
 
     public:
 
         GameBoard(const int32_t Width, const int32_t Height,
             const bool Loop_x = true, const bool Loop_y = true,
             const bool Invert_x = false, const bool Invert_y = false,
-            CHSV Board_color = CHSV(0,0,0)): \
+            CRGB Board_color = CRGB::Black): \
         width(Width), height(Height), \
         loop_x(Loop_x), loop_y(Loop_y), \
         invert_x_movement(Invert_x), \
         invert_y_movement(Invert_y), \
         board_color(Board_color) {}
 
+        uint32_t size() const { return this->width * this->height; }
+
 };
 
+Direction get_direction_from_ps4();
 
-Fruit create_random_fruit(const GameBoard& game_board, const std::vector<Fruit>& fruits, const Snake& snake);
+Fruit create_random_fruit(const GameBoard& game_board, const FruitList& fruits, const Snake& snake);
+
+void draw(LedMatrix& led_matrix, const GameBoard& game_board, const FruitList& fruits, const Snake& snake, const bool write_to_leds = true);
 
 void snake_game_task(void*);

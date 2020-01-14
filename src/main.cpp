@@ -4,7 +4,8 @@
 #include "Ringbuffer.h"
 
 #include <FastLED.h>        // https://github.com/FastLED/FastLED
-#include <LEDMatrix.h>      // https://github.com/Jorgen-VikingGod/LEDMatrix
+#include "LedMatrix.h"
+#include <array>
 
 #include "freertos/task.h"
 #include "Snake.h"
@@ -16,24 +17,20 @@
 #define CHIPSET             WS2812B
 
 // initial matrix layout (to get led strip index by x/y)
-#define MATRIX_WIDTH        30
-#define MATRIX_HEIGHT       10
-#define MATRIX_TYPE         HORIZONTAL_ZIGZAG_MATRIX
-#define MATRIX_SIZE         (MATRIX_WIDTH*MATRIX_HEIGHT)
-#define NUMPIXELS           MATRIX_SIZE
-#define BRIGHTNESS          32
+#define MATRIX_WIDTH            30
+#define MATRIX_HEIGHT           10
+#define MATRIX_WIRING_START     LedMatrix::TopRight
+#define MATRIX_WIRING_PATTERN   LedMatrix::HorizontalZigZag
+#define MATRIX_SIZE             (MATRIX_WIDTH*MATRIX_HEIGHT)
+#define NUMPIXELS               MATRIX_SIZE
+#define BRIGHTNESS              32
 
 // create our matrix based on matrix definition
-cLEDMatrix<MATRIX_WIDTH, MATRIX_HEIGHT, MATRIX_TYPE> leds;
-
-// MTX_MATRIX_TOP
-// MTX_MATRIX_RIGH
-
-uint8_t hue;
-int16_t counter;
+std::array<CRGB, MATRIX_SIZE> leds;
+LedMatrix led_matrix(leds.data(), MATRIX_WIDTH, MATRIX_HEIGHT, MATRIX_WIRING_START, MATRIX_WIRING_PATTERN);
 
 
-// BT-MAC-Address of Xperia XZ Smartphone
+// BT-MAC-Address of Smartphone
 #define SMARTPHONE_BT_MAC "84:C7:EA:B1:11:AB"
 
 void ps4_controller_setup();
@@ -41,13 +38,6 @@ void ps4_controller_test();
 void ps4_task(void*);
 
 void leds_setup();
-void leds_test();
-void led_task(void*);
-
-Ringbuffer<int> buf = {1, 2, 3, 4, 5, 6, 7, 8};
-
-TaskHandle_t ps4_task_handle = nullptr;
-TaskHandle_t led_task_handle = nullptr;
 
 TaskHandle_t snake_task_handle = nullptr;
 
@@ -57,10 +47,13 @@ void setup() {
     Serial.begin(115200); delay(1000);
     Serial.println("Ready.");
 
+    ps4_controller_setup();
+    leds_setup();
+
     // xTaskCreatePinnedToCore(ps4_task, "PS4-Task", 8192, nullptr, 4, &ps4_task_handle, 0);
     // xTaskCreatePinnedToCore(led_task, "LED-Task", 8192, nullptr, 4, &led_task_handle, 1);
 
-    xTaskCreatePinnedToCore(snake_game_task, "Snake-Task", 8192, nullptr, 4, &snake_task_handle, 1);
+    xTaskCreatePinnedToCore(snake_game_task, "Snake-Task", 2 * 8192, &led_matrix, 4, &snake_task_handle, 1);
 
 }
 
@@ -214,102 +207,36 @@ void leds_setup()
     Serial.println("Testing LEDs..."); 
 
     // initial LEDs
-    FastLED.addLeds<CHIPSET, DATA_PIN, COLOR_ORDER>(leds[0], leds.Size()).setCorrection(TypicalSMD5050);
+    FastLED.addLeds<CHIPSET, DATA_PIN, COLOR_ORDER>(leds.data(), leds.size()).setCorrection(TypicalSMD5050);
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setBrightness(BRIGHTNESS);
     FastLED.clear(true);
     delay(500);
 
-    FastLED.showColor(CRGB::Red);
-    delay(1000);
+    // FastLED.showColor(CRGB::Red);
+    // delay(1000);
 
-    FastLED.showColor(CRGB::Lime);
-    delay(1000);
+    // FastLED.showColor(CRGB::Lime);
+    // delay(1000);
 
-    FastLED.showColor(CRGB::Blue);
-    delay(1000);
+    // FastLED.showColor(CRGB::Blue);
+    // delay(1000);
 
-    FastLED.showColor(CRGB::White);
-    delay(1000);
+    // FastLED.showColor(CRGB::White);
+    // delay(1000);
 
-    FastLED.clear(true);
+    // FastLED.clear(true);
 
-    hue = 0;
-    counter = 0;
-
-    // for (uint32_t j = 0; j < leds.Height(); ++j) {
-    //     for (uint32_t i = 0; i < leds.Width(); ++i) {
-    //         leds(i, j) = CRGB::Green;
+    // // LedMatrix Test
+    // for (uint32_t row = 0; row < led_matrix.height(); ++row) {
+    //     for (uint32_t colum = 0; colum < led_matrix.width(); ++colum) {
+    //         led_matrix(row, colum) = CRGB::Green;
     //         FastLED.show();
     //         delay(250);
     //     }
     // }
 
-    delay(5000);
-    FastLED.clear(true);
+    // delay(5000);
+    // FastLED.clear(true);
 }
 
-void leds_test()
-{
-    int16_t x, y;
-    uint8_t h;
-
-    FastLED.clear();
-
-    h = hue;
-    if (counter < 1125)
-    {
-        // ** Fill LED's with diagonal stripes
-        for (x=0; x<(leds.Width()+leds.Height()); ++x)
-        {
-            leds.DrawLine(x - leds.Height(), leds.Height() - 1, x, 0, CHSV(h, 255, 255));
-            h+=16;
-        }
-    }
-    else
-    {
-        // ** Fill LED's with horizontal stripes
-        for (y=0; y<leds.Height(); ++y)
-        {
-            leds.DrawLine(0, y, leds.Width() - 1, y, CHSV(h, 255, 255));
-            h+=16;
-        }
-    }
-    hue+=4;
-
-    if (counter < 125)
-        ;
-    else if (counter < 375)
-        leds.HorizontalMirror();
-    else if (counter < 625)
-        leds.VerticalMirror();
-    else if (counter < 875)
-        leds.QuadrantMirror();
-    else if (counter < 1125)
-        leds.QuadrantRotateMirror();
-    else if (counter < 1250)
-        ;
-    else if (counter < 1500)
-        leds.TriangleTopMirror();
-    else if (counter < 1750)
-        leds.TriangleBottomMirror();
-    else if (counter < 2000)
-        leds.QuadrantTopTriangleMirror();
-    else if (counter < 2250)
-        leds.QuadrantBottomTriangleMirror();
-
-    counter++;
-    if (counter >= 2250)
-        counter = 0;
-    FastLED.show();
-    delay(5);
-}
-
-void led_task(void*) {
-
-    leds_setup();
-
-    while (true) {
-        leds_test();
-    }
-}
