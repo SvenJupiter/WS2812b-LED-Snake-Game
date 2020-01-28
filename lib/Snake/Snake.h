@@ -43,6 +43,12 @@ class Direction {
         void set_y(const int32_t y_dir) { this->y = y_dir; }
         void set_xy(const int32_t x_dir, const int32_t y_dir) { this->set_x(x_dir); this->set_y(y_dir); }
 
+        Direction& normalize() {
+            this->x = ((this->x > 0) ? 1 : ((this->x > 0) ? -1 : 0));
+            this->y = ((this->y > 0) ? 1 : ((this->y > 0) ? -1 : 0));
+            return *this;
+        }
+
 
     public:
 
@@ -103,6 +109,17 @@ class Position {
             return pos;
         }
 
+        Position& operator-=(const Direction& dir) {
+            this->x -= dir.x;
+            this->y -= dir.y;
+            return *this;
+        }
+
+        Position operator-(const Direction& dir) const {
+            Position pos = *this;
+            pos -= dir;
+            return pos;
+        }
 
         // prefix ++ // change x 
         Position& operator++() {
@@ -129,6 +146,22 @@ class Position {
         }
 
 
+        static int32_t distance_squared(const Position& p1, const Position& p2) {
+            const int32_t dx = p2.x - p1.x;
+            const int32_t dy = p2.y - p1.y;
+            return (dx*dx + dy*dy);
+        }
+
+        static Direction direction(const Position& start_point, const Position& end_point) {
+            const int32_t dx = end_point.x - start_point.x;
+            const int32_t dy = end_point.y - start_point.y;
+            return Direction(dx, dy);
+        }
+
+        Direction operator-(const Position& start_point) const {
+            return direction(start_point, *this);
+        }
+
 
     public:
 
@@ -151,9 +184,9 @@ class Fruit {
         };
 
         enum Color : int32_t {
-            Normal_Color = CRGB::Green,
+            Normal_Color = CRGB::Blue,
             SpeedBoost_Color = CRGB::Red,
-            SlowDown_Color = CRGB::Blue,
+            SlowDown_Color = CRGB::Green,
             Ghost_Color = CRGB::White,
             Rainbow_Color = CRGB::Violet,
         };
@@ -163,7 +196,7 @@ class Fruit {
         Type type;
         CRGB color;
 
-    Fruit(const Position& pos, const Type& fruit_type = Normal_Type, const CRGB& Color = CRGB::Yellow): position(pos), type(fruit_type), color(Color) {}
+    Fruit(const Position& pos, const Type& fruit_type = Normal_Type, const CRGB& Color = CRGB::Blue): position(pos), type(fruit_type), color(Color) {}
 
     Fruit(const Fruit& other): position(other.position), type(other.type) {}
 
@@ -271,7 +304,12 @@ class GameBoard {
 
 };
 
+Direction get_direction_from_ps4_control_pad();
+Direction get_direction_from_ps4_analog_stick(const bool left_stick = true, const uint32_t magnitude_thershold = 100);
 Direction get_direction_from_ps4();
+
+Direction get_direction_from_game_ai(const GameBoard& game_board, const FruitList& fruits, const Snake& snake);
+
 
 Fruit create_random_fruit(const GameBoard& game_board, const FruitList& fruits, const Snake& snake);
 

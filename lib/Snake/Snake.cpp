@@ -2,6 +2,8 @@
 #include "Snake.h"
 #include "freertos/task.h"
 #include <PS4Controller.h>
+#include <map>
+#include <algorithm>
 
 
 const Direction Direction::Up(0, -1);
@@ -15,10 +17,10 @@ const Direction Direction::DownRight(1, 1);
 const Direction Direction::None(0, 0);
 
 Fruit create_random_fruit(const GameBoard& game_board, const FruitList& fruits, const Snake& snake) {
-    return Fruit(Position(game_board.width/2, game_board.height/2), Fruit::Normal_Type, CRGB::Yellow);
+    return Fruit(Position(random(game_board.width), random(game_board.height)), Fruit::Normal_Type, Fruit::Normal_Color);
 }
 
-Direction get_direction_from_ps4() {
+Direction get_direction_from_ps4_control_pad() {
 
     if (PS4.isConnected()) {
 
@@ -59,6 +61,83 @@ Direction get_direction_from_ps4() {
     return Direction::None;
 }
 
+Direction get_direction_from_ps4_analog_stick(const bool left_stick, const uint32_t magnitude_thershold) {
+
+    if (PS4.isConnected()) {
+
+        // const bool movement = ( \
+        //     PS4.event.analog_move.stick.lx || PS4.event.analog_move.stick.ly || \
+        //     PS4.event.analog_move.stick.rx || PS4.event.analog_move.stick.ry \
+        // );
+
+        // Get analog values from analog stick
+        const int32_t analog_x = (left_stick ? PS4.data.analog.stick.lx :  PS4.data.analog.stick.rx);
+        const int32_t analog_y = (left_stick ? PS4.data.analog.stick.ly :  PS4.data.analog.stick.ry);
+
+        // Compare magnitude
+        const int32_t magnitude_squared = ((analog_x*analog_x) + (analog_y*analog_y));
+        if (magnitude_thershold*magnitude_thershold > magnitude_squared) {
+            return Direction::None;
+        }
+
+    
+        #define comp(value) (((value)*(16777216L))/(40503782L))
+
+        if (analog_y > 0 && abs(analog_x) <= comp(analog_y)) { // up
+            Serial.println("Stick Up");
+            return Direction::Up;
+        }
+        else if (analog_y < 0 && abs(analog_x) <= comp(-analog_y)) { // down
+            Serial.println("Stick Down");
+            return Direction::Down;
+        }
+        else if (analog_x < 0 && abs(analog_y) <= comp(-analog_x)) { // left
+            Serial.println("Left Button");
+            return Direction::Left;
+        }
+        else if (analog_x > 0 && abs(analog_y) <= comp(analog_x)) { // right
+            Serial.println("Stick Right");
+            return Direction::Right;
+        }
+        else if (analog_y > comp(analog_x) && analog_x > comp(analog_y)) { // upright
+            Serial.println("Stick Up Right");
+            return Direction::UpRight;
+        }
+        else if (analog_y > comp(-analog_x) && (-analog_x) > comp(analog_y)) { // upleft
+            Serial.println("Stick Up Left");
+            return Direction::UpLeft;
+        }
+        else if (analog_y < comp(analog_x) && analog_x < comp(analog_y)) { // downleft
+            Serial.println("Stick Down Left");
+            return Direction::DownLeft;
+        }
+        else if (analog_x > comp(-analog_y) && (-analog_y) > comp(analog_x)) { // downright
+            Serial.println("Stick Down Right");
+            return Direction::DownRight;
+        }
+    }
+    // else
+    return Direction::None;
+}
+
+Direction get_direction_from_ps4() {
+    return get_direction_from_ps4_control_pad() + get_direction_from_ps4_analog_stick(true, 100);
+}
+
+
+Direction get_direction_from_game_ai(const GameBoard& game_board, const FruitList& fruits, const Snake& snake) {
+
+    std::map<int32_t, Direction> results;
+    // results.reserve(fruit.size());
+    for (auto& fruit : fruits) {
+        const int32_t dist = Position::distance_squared(fruit.position, snake.head());
+        const Direction dir = Position::direction(fruit.position, snake.head()).normalize();
+        results.emplace(dist, dir);
+    }
+
+    return std::min_element(results.begin(), results.end(), [](std::map<int32_t, Direction>::value_type a, std::map<int32_t, Direction>::value_type b)-> bool { return a.first < b.first; })->second;
+}
+
 
 void draw(LedMatrix& led_matrix, const GameBoard& game_board, const FruitList& fruits, const Snake& snake, const bool write_to_leds) {
 
@@ -89,7 +168,7 @@ void draw(LedMatrix& led_matrix, const GameBoard& game_board, const FruitList& f
     led_matrix(snake.head().y, snake.head().x) = snake.head_color;
 
     // push to matrix
-    if (true || write_to_leds) { FastLED.show(); }
+    if (write_to_leds) { FastLED.show(); }
 
 }
 
@@ -107,6 +186,12 @@ void snake_game_task(void* args) {
     FruitList fruits;
 
     while (true) {
+
+        // Place fruits on gameboard
+        for (auto i = 0; i < 10; ++i) {
+            // create new fruit
+            fruits.insert(create_random_fruit(game_board, fruits, snake));
+        }
 
         // Draw everything
         Serial.println("Initilizing Gameboard...");
@@ -157,11 +242,11 @@ void snake_game_task(void* args) {
                 }
             }
 
-            Serial.print("Snake Head at pos. ("); 
-            Serial.print(snake.head().x, DEC);
-            Serial.print("|");
-            Serial.print(snake.head().y, DEC);
-            Serial.println(")");
+            // Serial.print("Snake Head at pos. ("); 
+            // Serial.print(snake.head().x, DEC);
+            // Serial.print("|");
+            // Serial.print(snake.head().y, DEC);
+            // Serial.println(")");
 
 
             // check if snake bites itself
@@ -178,16 +263,18 @@ void snake_game_task(void* args) {
                     snake.eat(fruit);
                     fruits.erase(fruit);
 
+                    // create new fruit
+                    fruits.insert(create_random_fruit(game_board, fruits, snake));
+
                     // Snake can only eat one fruit at a time
                     break;
                 }
             }
 
-            // create new fruit
-            fruits.insert(create_random_fruit(game_board, fruits, snake));
+
 
             // Draw everything
-            draw(*led_matrix, game_board, fruits, snake);
+            draw(*led_matrix, game_board, fruits, snake, true);
 
             // sleep
             delay(refresh_interval);
