@@ -17,7 +17,9 @@ const Direction Direction::DownRight(1, 1);
 const Direction Direction::None(0, 0);
 
 Fruit create_random_fruit(const GameBoard& game_board, const FruitList& fruits, const Snake& snake) {
-    return Fruit(Position(random(game_board.width), random(game_board.height)), Fruit::Normal_Type, Fruit::Normal_Color);
+    const Fruit fruit(Position(random(game_board.width), random(game_board.height)), Fruit::Normal_Type, CRGB::Orange /*CRGB::OrangeRed*/);
+    printf("New Fruit at (%d/%d)\n", fruit.position.y, fruit.position.x);
+    return fruit;
 }
 
 Direction get_direction_from_ps4_control_pad() {
@@ -131,11 +133,13 @@ Direction get_direction_from_game_ai(const GameBoard& game_board, const FruitLis
     // results.reserve(fruit.size());
     for (auto& fruit : fruits) {
         const int32_t dist = Position::distance_squared(fruit.position, snake.head());
-        const Direction dir = Position::direction(fruit.position, snake.head()).normalize();
+        const Direction dir = Position::direction(snake.head(), fruit.position).normalize();
         results.emplace(dist, dir);
     }
 
-    return std::min_element(results.begin(), results.end(), [](std::map<int32_t, Direction>::value_type a, std::map<int32_t, Direction>::value_type b)-> bool { return a.first < b.first; })->second;
+    const auto min_res = std::min_element(results.begin(), results.end(), [](std::map<int32_t, Direction>::value_type a, std::map<int32_t, Direction>::value_type b)-> bool { return (a.first < b.first); });
+    // printf("AI-Direction: Head = %s, dist = %d, dir = %s\n", snake.head().to_string().c_str(), min_res->first, min_res->second.to_string().c_str());
+    return min_res->second;
 }
 
 
@@ -179,6 +183,8 @@ void snake_game_task(void* args) {
     
     LedMatrix* led_matrix = (LedMatrix*) args;
     uint32_t refresh_interval = 125;
+    const int32_t idle_timeout_ms = 10000;
+    int32_t idle_timer_ms = 0;
     Direction dir(1, 0);
     Direction old_dir(0,0);
     GameBoard game_board (30, 10 , true, true, false, false);
@@ -190,23 +196,29 @@ void snake_game_task(void* args) {
         // Place fruits on gameboard
         for (auto i = 0; i < 10; ++i) {
             // create new fruit
-            fruits.insert(create_random_fruit(game_board, fruits, snake));
+            fruits.push_back(create_random_fruit(game_board, fruits, snake));
         }
 
         // Draw everything
         Serial.println("Initilizing Gameboard...");
         draw(*led_matrix, game_board, fruits, snake);
 
-        // wait for game start
-        Serial.println("Press any direction to start");
-        while (get_direction_from_ps4() == Direction::None) { delay(refresh_interval); }
+        // // wait for game start
+        // Serial.println("Press any direction to start");
+        // while (get_direction_from_ps4() == Direction::None) { delay(refresh_interval); }
 
         // Game Loop
+        TickType_t xPreviousWakeTime = xTaskGetTickCount();
         while (true) {
 
             // get new direction
             old_dir = dir;
             dir = get_direction_from_ps4();
+            if (dir == Direction::None) {
+                if (idle_timer_ms <= 0) { dir = get_direction_from_game_ai(game_board, fruits, snake); refresh_interval = 200; }
+                else { idle_timer_ms -= refresh_interval; }
+            }
+            else { idle_timer_ms = idle_timeout_ms; refresh_interval = 125; }
             if (dir == Direction::None) { dir = old_dir; }
 
 
@@ -261,10 +273,10 @@ void snake_game_task(void* args) {
             for (auto& fruit : fruits) {
                 if (snake.head() == fruit.position) {
                     snake.eat(fruit);
-                    fruits.erase(fruit);
+                    // fruits.erase(fruit);
 
                     // create new fruit
-                    fruits.insert(create_random_fruit(game_board, fruits, snake));
+                    fruit = create_random_fruit(game_board, fruits, snake);
 
                     // Snake can only eat one fruit at a time
                     break;
@@ -277,7 +289,7 @@ void snake_game_task(void* args) {
             draw(*led_matrix, game_board, fruits, snake, true);
 
             // sleep
-            delay(refresh_interval);
+            vTaskDelayUntil(&xPreviousWakeTime, pdMS_TO_TICKS(refresh_interval));
         }
 
 

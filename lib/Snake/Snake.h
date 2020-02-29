@@ -2,11 +2,41 @@
 #include "FastLED.h"
 #include "Ringbuffer.h"
 #include "LedMatrix.h"
+#include <string>
 #include <utility>
 #include <set>
+#include <stdarg.h> // Variadic functions
+
+template <typename... Args>
+std::string format_str(const std::string fmt, Args... args) {
+
+    char* buf = nullptr; 
+    const int res = asprintf(&buf, fmt.c_str(), args...);
+
+    if (res >= 0) {
+        const std::string temp(buf); 
+        free(buf); 
+        return temp; 
+    } 
+    else { 
+        return ""; 
+    }
+}
 
 
 class Direction {
+
+    public:
+
+        static const Direction Up;
+        static const Direction Down;
+        static const Direction Left;
+        static const Direction Right;
+        static const Direction UpRight;
+        static const Direction UpLeft;
+        static const Direction DownLeft;
+        static const Direction DownRight;
+        static const Direction None;
 
     public:
 
@@ -44,23 +74,24 @@ class Direction {
         void set_xy(const int32_t x_dir, const int32_t y_dir) { this->set_x(x_dir); this->set_y(y_dir); }
 
         Direction& normalize() {
-            this->x = ((this->x > 0) ? 1 : ((this->x > 0) ? -1 : 0));
-            this->y = ((this->y > 0) ? 1 : ((this->y > 0) ? -1 : 0));
+            this->x = ((this->x > 0) ? 1 : ((this->x < 0) ? -1 : 0));
+            this->y = ((this->y > 0) ? 1 : ((this->y < 0) ? -1 : 0));
             return *this;
         }
 
+        std::string to_string() const {
+            if (*this == Up) { return "Up"; }
+            else if (*this == Down) { return "Down"; }
+            else if (*this == Left) { return "Left"; }
+            else if (*this == Right) { return "Right"; }
+            else if (*this == UpRight) { return "UpRight"; }
+            else if (*this == UpLeft) { return "UpLeft"; }
+            else if (*this == DownLeft) { return "DownLeft"; }
+            else if (*this == DownRight) { return "DownRight"; }
+            else if (*this == None) { return "None"; }
+            else { return format_str("(%d/%d)", this->x, this->y); }
+        }
 
-    public:
-
-    static const Direction Up;
-    static const Direction Down;
-    static const Direction Left;
-    static const Direction Right;
-    static const Direction UpRight;
-    static const Direction UpLeft;
-    static const Direction DownLeft;
-    static const Direction DownRight;
-    static const Direction None;
 
 };
 
@@ -163,6 +194,9 @@ class Position {
         }
 
 
+        std::string to_string() const { return format_str("(%d/%d)", this->x, this->y); }
+
+
     public:
 
 };
@@ -176,11 +210,11 @@ class Fruit {
     public:
 
         enum Type : int32_t {
-            Normal_Type, // Lets Snake grow
-            SpeedBoost_Type, // Make Snake faster for a few seconds
-            SlowDown_Type, // Make Snake slower for a few seconds
-            Ghost_Type, // Snake can pass over its body without biting it off
-            Rainbow_Type, // 
+            Normal_Type = 0, // Lets Snake grow
+            SpeedBoost_Type = 1, // Make Snake faster for a few seconds
+            SlowDown_Type = 2, // Make Snake slower for a few seconds
+            Ghost_Type = 3, // Snake can pass over its body without biting it off
+            Rainbow_Type = 4, // 
         };
 
         enum Color : int32_t {
@@ -198,19 +232,20 @@ class Fruit {
 
     Fruit(const Position& pos, const Type& fruit_type = Normal_Type, const CRGB& Color = CRGB::Blue): position(pos), type(fruit_type), color(Color) {}
 
-    Fruit(const Fruit& other): position(other.position), type(other.type) {}
+    Fruit(const Fruit& other): position(other.position), type(other.type), color(other.color) {}
 
     void operator=(const Fruit& other) {
         if (this != &other) {
             this->position = other.position;
             this->type = other.type;
+            this->color = other.color;
         }
     }
 
     // Needed to put Fruits in a set (order doesn't matter in this case)
     bool operator<(const Fruit& other) const { return false; }
 };
-typedef std::set<Fruit> FruitList;
+typedef std::vector<Fruit> FruitList;
 
 
 class Snake {

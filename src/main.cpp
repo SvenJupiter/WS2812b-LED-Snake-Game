@@ -72,11 +72,11 @@ void ps4_controller_setup() {
     // Pair your Controller with your smartphone and use its BT-MAC-Address here
     PS4.begin(SMARTPHONE_BT_MAC); 
 
-    while (!PS4.isConnected()) { 
-        Serial.println("Connecting to PS4 Controller..."); 
-        delay(1000);
-    }
-    Serial.println("PS4 Controller Connected!");
+    // while (!PS4.isConnected()) { 
+    //     Serial.println("Connecting to PS4 Controller..."); 
+    //     delay(1000);
+    // }
+    // Serial.println("PS4 Controller Connected!");
 
 }
 
