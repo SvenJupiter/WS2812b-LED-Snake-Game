@@ -53,7 +53,7 @@ void setup() {
     // xTaskCreatePinnedToCore(ps4_task, "PS4-Task", 8192, nullptr, 4, &ps4_task_handle, 0);
     // xTaskCreatePinnedToCore(led_task, "LED-Task", 8192, nullptr, 4, &led_task_handle, 1);
 
-    xTaskCreatePinnedToCore(snake_game_task, "Snake-Task", 2 * 8192, &led_matrix, 4, &snake_task_handle, 1);
+    xTaskCreatePinnedToCore(SnakeGame::game_task, "Snake-Task", 2 * 8192, &led_matrix, 4, &snake_task_handle, 1);
 
 }
 

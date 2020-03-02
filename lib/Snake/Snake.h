@@ -1,208 +1,12 @@
+#pragma once
+
 #include "stdint.h"
 #include "FastLED.h"
 #include "Ringbuffer.h"
 #include "LedMatrix.h"
-#include <string>
-#include <utility>
-#include <set>
-#include <stdarg.h> // Variadic functions
+#include "Game.h"
 
-template <typename... Args>
-std::string format_str(const std::string fmt, Args... args) {
-
-    char* buf = nullptr; 
-    const int res = asprintf(&buf, fmt.c_str(), args...);
-
-    if (res >= 0) {
-        const std::string temp(buf); 
-        free(buf); 
-        return temp; 
-    } 
-    else { 
-        return ""; 
-    }
-}
-
-
-class Direction {
-
-    public:
-
-        static const Direction Up;
-        static const Direction Down;
-        static const Direction Left;
-        static const Direction Right;
-        static const Direction UpRight;
-        static const Direction UpLeft;
-        static const Direction DownLeft;
-        static const Direction DownRight;
-        static const Direction None;
-
-    public:
-
-        int32_t x;
-        int32_t y;
-
-        // default constuctor
-        Direction(const int32_t x_dir, const int32_t y_dir): x(x_dir), y(y_dir) {}
-
-        // copy constructor
-        Direction(const Direction& other): x(other.x), y(other.y) {}
-
-        void operator=(const Direction& other) {
-            if (this != &other) {
-                this->x = other.x;
-                this->y = other.y;
-            }
-        }
-
-        bool operator==(const Direction& other) const {
-            return ((this->x == other.x) && (this->y == other.y));
-        }
-
-        bool operator!=(const Direction& other) const {
-            return !(*this == other);
-        }
-
-        Direction operator+(const Direction& other) {
-            Direction dir(this->x + other.x, this->y + other.y);
-            return dir;
-        }
-
-        void set_x(const int32_t x_dir) { this->x = x_dir; }
-        void set_y(const int32_t y_dir) { this->y = y_dir; }
-        void set_xy(const int32_t x_dir, const int32_t y_dir) { this->set_x(x_dir); this->set_y(y_dir); }
-
-        Direction& normalize() {
-            this->x = ((this->x > 0) ? 1 : ((this->x < 0) ? -1 : 0));
-            this->y = ((this->y > 0) ? 1 : ((this->y < 0) ? -1 : 0));
-            return *this;
-        }
-
-        std::string to_string() const {
-            if (*this == Up) { return "Up"; }
-            else if (*this == Down) { return "Down"; }
-            else if (*this == Left) { return "Left"; }
-            else if (*this == Right) { return "Right"; }
-            else if (*this == UpRight) { return "UpRight"; }
-            else if (*this == UpLeft) { return "UpLeft"; }
-            else if (*this == DownLeft) { return "DownLeft"; }
-            else if (*this == DownRight) { return "DownRight"; }
-            else if (*this == None) { return "None"; }
-            else { return format_str("(%d/%d)", this->x, this->y); }
-        }
-
-
-};
-
-class Position {
-
-    public:
-
-        int32_t x;
-        int32_t y;
-
-        // default constuctor
-        Position(const int32_t x_pos, const int32_t y_pos): x(x_pos), y(y_pos) {}
-
-        // copy constructor
-        Position(const Position& other): x(other.x), y(other.y) {}
-
-        void operator=(const Position& other) {
-            if (this != &other) {
-                this->x = other.x;
-                this->y = other.y;
-            }
-        }
-
-        bool operator==(const Position& other) const {
-            return ((this->x == other.x) && (this->y == other.y));
-        }
-
-        bool operator!=(const Position& other) const {
-            return !(*this == other);
-        }
-
-        void set_x(const int32_t x_pos) { this->x = x_pos; }
-        void set_y(const int32_t y_pos) { this->y = y_pos; }
-        void set_xy(const int32_t x_pos, const int32_t y_pos) { this->set_x(x_pos); this->set_y(y_pos); }
-
-
-        Position& operator+=(const Direction& dir) {
-            this->x += dir.x;
-            this->y += dir.y;
-            return *this;
-        }
-
-        Position operator+(const Direction& dir) const {
-            Position pos = *this;
-            pos += dir;
-            return pos;
-        }
-
-        Position& operator-=(const Direction& dir) {
-            this->x -= dir.x;
-            this->y -= dir.y;
-            return *this;
-        }
-
-        Position operator-(const Direction& dir) const {
-            Position pos = *this;
-            pos -= dir;
-            return pos;
-        }
-
-        // prefix ++ // change x 
-        Position& operator++() {
-            this->x += 1;
-            return *this;
-        }
-
-        // prefix -- // change x 
-        Position& operator--() {
-            this->x -= 1;
-            return *this;
-        }
-
-        // postfix ++ // change y 
-        Position& operator++(int) {
-            this->y += 1;
-            return *this;
-        }
-
-        // postfix -- // change y 
-        Position& operator--(int) {
-            this->y -= 1;
-            return *this;
-        }
-
-
-        static int32_t distance_squared(const Position& p1, const Position& p2) {
-            const int32_t dx = p2.x - p1.x;
-            const int32_t dy = p2.y - p1.y;
-            return (dx*dx + dy*dy);
-        }
-
-        static Direction direction(const Position& start_point, const Position& end_point) {
-            const int32_t dx = end_point.x - start_point.x;
-            const int32_t dy = end_point.y - start_point.y;
-            return Direction(dx, dy);
-        }
-
-        Direction operator-(const Position& start_point) const {
-            return direction(start_point, *this);
-        }
-
-
-        std::string to_string() const { return format_str("(%d/%d)", this->x, this->y); }
-
-
-    public:
-
-};
-
-
-
+namespace SnakeGame {
 
 class Fruit {
 
@@ -226,11 +30,11 @@ class Fruit {
         };
 
     public:
-        Position position;
+        Game::Position position;
         Type type;
         CRGB color;
 
-    Fruit(const Position& pos, const Type& fruit_type = Normal_Type, const CRGB& Color = CRGB::Blue): position(pos), type(fruit_type), color(Color) {}
+    Fruit(const Game::Position& pos, const Type& fruit_type = Normal_Type, const CRGB& Color = CRGB::Blue): position(pos), type(fruit_type), color(Color) {}
 
     Fruit(const Fruit& other): position(other.position), type(other.type), color(other.color) {}
 
@@ -254,7 +58,7 @@ class Snake {
 
         // int32_t length;
 
-        Ringbuffer<Position> body;
+        Ringbuffer<Game::Position> body;
         CRGB head_color;
         CRGB body_base_color;
         uint8_t length_color_modifier;
@@ -262,13 +66,13 @@ class Snake {
 
     public:
 
-        Snake(const Position initial_pos, const uint32_t initial_length = 5): body(initial_length, initial_pos), head_color(CRGB::Red), body_base_color(CRGB::Green) {}
+        Snake(const Game::Position initial_pos, const uint32_t initial_length = 5): body(initial_length, initial_pos), head_color(CRGB::Red), body_base_color(CRGB::Green) {}
 
 
-        Position& head() { return this->body.front(); }
-        const Position& head() const { return this->body.front(); }
-        const Position& tail() const { return this->body.back(); }
-        Position& tail() { return this->body.back(); }
+        Game::Position& head() { return this->body.front(); }
+        const Game::Position& head() const { return this->body.front(); }
+        const Game::Position& tail() const { return this->body.back(); }
+        Game::Position& tail() { return this->body.back(); }
         int32_t length() const { return this->body.size(); }
 
         void grow() {
@@ -279,27 +83,27 @@ class Snake {
             this->grow();
         }
 
-        int32_t bite_off_tail(const Ringbuffer<Position>::const_iterator& bite_mark) {
+        int32_t bite_off_tail(const Ringbuffer<Game::Position>::const_iterator& bite_mark) {
             this->body.erase(bite_mark, this->body.end());
             return this->length();
         }
 
-        void move(const Position& new_head_position) {
+        void move(const Game::Position& new_head_position) {
             this->body.push_front(new_head_position);
         }
 
-        std::pair<bool, Ringbuffer<Position>::const_iterator> is_biting_itself() const {
+        std::pair<bool, Ringbuffer<Game::Position>::const_iterator> is_biting_itself() const {
 
             // for every body part
             for (auto body_part = this->body.begin()+1; body_part != this->body.end(); ++body_part) {
 
                 // check if position of body_part is the same as the position of the head
                 if (this->head() == *body_part) {
-                    return std::pair<bool, Ringbuffer<Position>::const_iterator>(true, body_part);
+                    return std::pair<bool, Ringbuffer<Game::Position>::const_iterator>(true, body_part);
                 }
             }
 
-            return std::pair<bool, Ringbuffer<Position>::const_iterator>(false, this->body.end());
+            return std::pair<bool, Ringbuffer<Game::Position>::const_iterator>(false, this->body.end());
         }
 
     
@@ -307,47 +111,15 @@ class Snake {
 
 };
 
-class GameBoard {
-
-    public:
-
-        int32_t width;
-        int32_t height;
 
 
-        bool loop_x;
-        bool loop_y;
 
-        bool invert_x_movement;
-        bool invert_y_movement;
+Game::Direction get_direction_from_game_ai(const Game::GameBoard& game_board, const FruitList& fruits, const Snake& snake);
 
-        CRGB board_color;
+Fruit create_random_fruit(const Game::GameBoard& game_board, const FruitList& fruits, const Snake& snake);
 
-    public:
+void draw(LedMatrix& led_matrix, const Game::GameBoard& game_board, const FruitList& fruits, const Snake& snake, const bool write_to_leds = true);
 
-        GameBoard(const int32_t Width, const int32_t Height,
-            const bool Loop_x = true, const bool Loop_y = true,
-            const bool Invert_x = false, const bool Invert_y = false,
-            CRGB Board_color = CRGB::Black): \
-        width(Width), height(Height), \
-        loop_x(Loop_x), loop_y(Loop_y), \
-        invert_x_movement(Invert_x), \
-        invert_y_movement(Invert_y), \
-        board_color(Board_color) {}
+void game_task(void*);
 
-        uint32_t size() const { return this->width * this->height; }
-
-};
-
-Direction get_direction_from_ps4_control_pad();
-Direction get_direction_from_ps4_analog_stick(const bool left_stick = true, const uint32_t magnitude_thershold = 100);
-Direction get_direction_from_ps4();
-
-Direction get_direction_from_game_ai(const GameBoard& game_board, const FruitList& fruits, const Snake& snake);
-
-
-Fruit create_random_fruit(const GameBoard& game_board, const FruitList& fruits, const Snake& snake);
-
-void draw(LedMatrix& led_matrix, const GameBoard& game_board, const FruitList& fruits, const Snake& snake, const bool write_to_leds = true);
-
-void snake_game_task(void*);
+}; // namespace Snake
